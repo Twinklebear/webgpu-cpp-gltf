@@ -1,18 +1,4 @@
 import WGPUApp from "./cpp/wgpu_app.js";
-//import wasm from "./cpp/wgpu_app.wasm";
-
-function sharedArrayBufferSupport()
-{
-    try {
-        var s = new SharedArrayBuffer(1024);
-        if (s === undefined) {
-            return false;
-        }
-    } catch (e) {
-        return false;
-    }
-    return true;
-}
 
 (async () =>
 {
@@ -20,12 +6,6 @@ function sharedArrayBufferSupport()
     if (navigator.gpu === undefined) {
         canvas.setAttribute("style", "display:none;");
         document.getElementById("no-webgpu").setAttribute("style", "display:block;");
-        return;
-    }
-
-    if (!sharedArrayBufferSupport()) {
-        canvas.setAttribute("style", "display:none;");
-        document.getElementById("no-shared-array-buffer").setAttribute("style", "display:block;");
         return;
     }
 

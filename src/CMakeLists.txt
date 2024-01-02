@@ -7,14 +7,14 @@ set_target_properties(wgpu_app PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED
 
 target_link_libraries(wgpu_app PRIVATE glm embedded_files)
 
-target_compile_options(wgpu_app PRIVATE -pthread)
+# target_compile_options(wgpu_app PRIVATE -pthread)
 
 target_link_options(
   wgpu_app
   PRIVATE
   "SHELL: -sENVIRONMENT='web,worker'"
-  -pthread
-  -sPTHREAD_POOL_SIZE=1
+  # Not using threads so this can be deployed in GH pages where we can't set the
+  # right headers to enable shader array buffer -pthread -sPTHREAD_POOL_SIZE=1
   -sEXPORT_ES6
   -sEXPORT_NAME=WGPUApp
   -sUSE_WEBGPU=1

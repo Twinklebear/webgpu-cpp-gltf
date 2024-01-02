@@ -6,6 +6,9 @@ module.exports = {
     entry: "./src/index.ts",
     mode: "development",
     devtool: "inline-source-map",
+    // This app will be deployed on Github pages which doesn't
+    // allow setting these headers
+    /*
     devServer: {
         headers: [
             {
@@ -18,6 +21,7 @@ module.exports = {
             }
         ]
     },
+    */
     output: {
         filename: "[contenthash].js",
         path: path.resolve(__dirname, "dist"),
