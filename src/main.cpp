@@ -1,10 +1,11 @@
-#include <array>
 #include <cstdlib>
 #include <iostream>
 #include <vector>
 #include "arcball_camera.h"
 #include "gltf_accessor.h"
 #include "gltf_buffer_view.h"
+#include "gltf_mesh.h"
+#include "gltf_node.h"
 #include "gltf_primitive.h"
 #include "tiny_gltf.h"
 #include <glm/ext.hpp>
@@ -20,7 +21,8 @@
 struct GLTFRenderData {
     tinygltf::Model model;
     std::vector<GLTFBufferView> buffers;
-    std::vector<GLTFPrimitive> primitives;
+    std::vector<GLTFMesh> meshes;
+    std::vector<GLTFNode> nodes;
 };
 
 struct AppState {
@@ -208,8 +210,11 @@ int main(int argc, const char **argv)
     tinygltf::TinyGLTF context;
     std::string err, warn;
     bool ret = false;
-    ret = context.LoadBinaryFromMemory(
-        &app_state->gltf_model.model, &err, &warn, TwoCylinderEngine_glb, TwoCylinderEngine_glb_size);
+    ret = context.LoadBinaryFromMemory(&app_state->gltf_model.model,
+                                       &err,
+                                       &warn,
+                                       TwoCylinderEngine_glb,
+                                       TwoCylinderEngine_glb_size);
     if (!warn.empty()) {
         std::cout << "Warning loading GLB: " << warn << "\n";
     }
@@ -230,6 +235,7 @@ int main(int argc, const char **argv)
     for (const auto &m : model.meshes) {
         std::cout << "Mesh name: " << m.name << " has " << m.primitives.size()
                   << " primitives\n";
+        std::vector<GLTFPrimitive> primitives;
         for (const auto &p : m.primitives) {
             if (p.mode != TINYGLTF_MODE_TRIANGLES && p.mode != TINYGLTF_MODE_TRIANGLE_STRIP) {
                 std::cout << "Skipping non-triangle primitive in " << m.name << "\n";
@@ -263,8 +269,9 @@ int main(int argc, const char **argv)
                 continue;
             }
 
-            app_state->gltf_model.primitives.emplace_back(positions, indices, &p);
+            primitives.emplace_back(positions, indices, &p);
         }
+        app_state->gltf_model.meshes.emplace_back(m.name, std::move(primitives));
     }
 
     // Upload all buffers that need to be uploaded
@@ -277,8 +284,9 @@ int main(int argc, const char **argv)
     }
 
     // Build render pipelines for each primitive
-    for (auto &p : app_state->gltf_model.primitives) {
-        p.build_render_pipeline(app_state->device,
+    for (auto &m : app_state->gltf_model.meshes) {
+        std::cout << "Building render pipeline for: " << m.get_name() << "\n";
+        m.build_render_pipeline(app_state->device,
                                 shader_module,
                                 color_targets,
                                 depth_state,
@@ -409,8 +417,8 @@ void loop_iteration(void *_app_state)
 
     render_pass_enc.SetBindGroup(0, app_state->bind_group);
 
-    for (auto &p : app_state->gltf_model.primitives) {
-        p.render(render_pass_enc);
+    for (auto &m : app_state->gltf_model.meshes) {
+        m.render(render_pass_enc);
     }
 
     render_pass_enc.End();
