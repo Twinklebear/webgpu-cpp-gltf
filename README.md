@@ -1,6 +1,5 @@
-# WebGPU C++ -> Wasm Template
+# WebGPU C++/Wasm glTF Renderer
 
-Template to get started with WebGPU C++ projects targetting
-WebAssembly via Emscripten. Easily build apps and then test
-and deploy with Webpack.
+A glTF renderer in C++ using WebGPU that compiles to
+Wasm to run in the browser.
 
