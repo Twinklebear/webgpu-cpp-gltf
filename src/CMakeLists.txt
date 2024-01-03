@@ -1,6 +1,8 @@
-embed_files(embedded_files ./triangle.wgsl)
+embed_files(embedded_files ./gltf.wgsl ./TwoCylinderEngine.glb)
 
-add_executable(wgpu_app main.cpp arcball_camera.cpp)
+add_executable(
+  wgpu_app main.cpp arcball_camera.cpp tiny_gltf.cpp gltf_buffer_view.cpp
+           gltf_accessor.cpp gltf_primitive.cpp)
 
 set_target_properties(wgpu_app PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED
                                                           ON)

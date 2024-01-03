@@ -3,6 +3,10 @@
 #include <iostream>
 #include <vector>
 #include "arcball_camera.h"
+#include "gltf_accessor.h"
+#include "gltf_buffer_view.h"
+#include "gltf_primitive.h"
+#include "tiny_gltf.h"
 #include <glm/ext.hpp>
 #include <glm/glm.hpp>
 
@@ -13,14 +17,19 @@
 
 #include "embedded_files.h"
 
+struct GLTFRenderData {
+    tinygltf::Model model;
+    std::vector<GLTFBufferView> buffers;
+    std::vector<GLTFPrimitive> primitives;
+};
+
 struct AppState {
     wgpu::Device device;
     wgpu::Queue queue;
 
     wgpu::Surface surface;
     wgpu::SwapChain swap_chain;
-    wgpu::RenderPipeline render_pipeline;
-    wgpu::Buffer vertex_buf;
+    wgpu::Texture depth_texture;
     wgpu::Buffer view_param_buf;
     wgpu::BindGroup bind_group;
 
@@ -30,6 +39,8 @@ struct AppState {
     bool done = false;
     bool camera_changed = true;
     glm::vec2 prev_mouse = glm::vec2(-2.f);
+
+    GLTFRenderData gltf_model;
 };
 
 double css_w = 0.0;
@@ -111,10 +122,21 @@ int main(int argc, const char **argv)
     app_state->swap_chain =
         app_state->device.CreateSwapChain(app_state->surface, &swap_chain_desc);
 
+    // Create the depth buffer
+    {
+        wgpu::TextureDescriptor depth_desc;
+        depth_desc.format = wgpu::TextureFormat::Depth32Float;
+        depth_desc.size.width = win_width;
+        depth_desc.size.height = win_height;
+        depth_desc.usage = wgpu::TextureUsage::RenderAttachment;
+
+        app_state->depth_texture = app_state->device.CreateTexture(&depth_desc);
+    }
+
     wgpu::ShaderModule shader_module;
     {
         wgpu::ShaderModuleWGSLDescriptor shader_module_wgsl;
-        shader_module_wgsl.code = reinterpret_cast<const char*>(triangle_wgsl);
+        shader_module_wgsl.code = reinterpret_cast<const char *>(gltf_wgsl);
 
         wgpu::ShaderModuleDescriptor shader_module_desc;
         shader_module_desc.nextInChain = &shader_module_wgsl;
@@ -156,52 +178,19 @@ int main(int argc, const char **argv)
             */
     }
 
-    // Upload vertex data
-    const std::vector<float> vertex_data = {
-        1,  -1, 0, 1,  // position
-        1,  0,  0, 1,  // color
-        -1, -1, 0, 1,  // position
-        0,  1,  0, 1,  // color
-        0,  1,  0, 1,  // position
-        0,  0,  1, 1,  // color
-    };
-    wgpu::BufferDescriptor buffer_desc;
-    buffer_desc.mappedAtCreation = true;
-    buffer_desc.size = vertex_data.size() * sizeof(float);
-    buffer_desc.usage = wgpu::BufferUsage::Vertex;
-    app_state->vertex_buf = app_state->device.CreateBuffer(&buffer_desc);
-    std::memcpy(app_state->vertex_buf.GetMappedRange(), vertex_data.data(), buffer_desc.size);
-    app_state->vertex_buf.Unmap();
+    std::vector<wgpu::ColorTargetState> color_targets;
+    {
+        wgpu::ColorTargetState cts;
+        cts.format = wgpu::TextureFormat::BGRA8Unorm;
+        color_targets.push_back(cts);
+    }
 
-    std::array<wgpu::VertexAttribute, 2> vertex_attributes;
-    vertex_attributes[0].format = wgpu::VertexFormat::Float32x4;
-    vertex_attributes[0].offset = 0;
-    vertex_attributes[0].shaderLocation = 0;
+    wgpu::DepthStencilState depth_state;
+    depth_state.format = wgpu::TextureFormat::Depth32Float;
+    depth_state.depthCompare = wgpu::CompareFunction::Less;
+    depth_state.depthWriteEnabled = true;
 
-    vertex_attributes[1].format = wgpu::VertexFormat::Float32x4;
-    vertex_attributes[1].offset = 4 * 4;
-    vertex_attributes[1].shaderLocation = 1;
-
-    wgpu::VertexBufferLayout vertex_buf_layout;
-    vertex_buf_layout.arrayStride = 2 * 4 * 4;
-    vertex_buf_layout.attributeCount = vertex_attributes.size();
-    vertex_buf_layout.attributes = vertex_attributes.data();
-
-    wgpu::VertexState vertex_state;
-    vertex_state.module = shader_module;
-    vertex_state.entryPoint = "vertex_main";
-    vertex_state.bufferCount = 1;
-    vertex_state.buffers = &vertex_buf_layout;
-
-    wgpu::ColorTargetState render_target_state;
-    render_target_state.format = wgpu::TextureFormat::BGRA8Unorm;
-
-    wgpu::FragmentState fragment_state;
-    fragment_state.module = shader_module;
-    fragment_state.entryPoint = "fragment_main";
-    fragment_state.targetCount = 1;
-    fragment_state.targets = &render_target_state;
-
+    // Create the view params bind group
     wgpu::BindGroupLayoutEntry view_param_layout_entry = {};
     view_param_layout_entry.binding = 0;
     view_param_layout_entry.buffer.hasDynamicOffset = false;
@@ -215,20 +204,86 @@ int main(int argc, const char **argv)
     wgpu::BindGroupLayout view_params_bg_layout =
         app_state->device.CreateBindGroupLayout(&view_params_bg_layout_desc);
 
-    wgpu::PipelineLayoutDescriptor pipeline_layout_desc = {};
-    pipeline_layout_desc.bindGroupLayoutCount = 1;
-    pipeline_layout_desc.bindGroupLayouts = &view_params_bg_layout;
+    // Try out importing the file using TinyGLTF
+    tinygltf::TinyGLTF context;
+    std::string err, warn;
+    bool ret = false;
+    ret = context.LoadBinaryFromMemory(
+        &app_state->gltf_model.model, &err, &warn, TwoCylinderEngine_glb, TwoCylinderEngine_glb_size);
+    if (!warn.empty()) {
+        std::cout << "Warning loading GLB: " << warn << "\n";
+    }
+    if (!ret || !err.empty()) {
+        std::cerr << "Error loading GLB: " << err << "\n";
+    }
 
-    wgpu::PipelineLayout pipeline_layout =
-        app_state->device.CreatePipelineLayout(&pipeline_layout_desc);
+    std::cout << "GLTF file loaded\n";
 
-    wgpu::RenderPipelineDescriptor render_pipeline_desc;
-    render_pipeline_desc.vertex = vertex_state;
-    render_pipeline_desc.fragment = &fragment_state;
-    render_pipeline_desc.layout = pipeline_layout;
-    // Default primitive state is what we want, triangle list, no indices
+    const auto &model = app_state->gltf_model.model;
+    // Create GLTFBufferViews for all the buffer views in the file
+    for (auto &bv : model.bufferViews) {
+        const auto &buf = model.buffers[bv.buffer];
+        app_state->gltf_model.buffers.emplace_back(&bv, buf);
+    }
 
-    app_state->render_pipeline = app_state->device.CreateRenderPipeline(&render_pipeline_desc);
+    std::cout << "# of meshes: " << model.meshes.size() << "\n";
+    for (const auto &m : model.meshes) {
+        std::cout << "Mesh name: " << m.name << " has " << m.primitives.size()
+                  << " primitives\n";
+        for (const auto &p : m.primitives) {
+            if (p.mode != TINYGLTF_MODE_TRIANGLES && p.mode != TINYGLTF_MODE_TRIANGLE_STRIP) {
+                std::cout << "Skipping non-triangle primitive in " << m.name << "\n";
+                continue;
+            }
+
+            GLTFAccessor indices;
+            if (p.indices != -1) {
+                const auto &acc = model.accessors[p.indices];
+                auto &bv = app_state->gltf_model.buffers[acc.bufferView];
+                indices = GLTFAccessor(&bv, &acc);
+
+                bv.needs_upload = true;
+                bv.add_usage(wgpu::BufferUsage::Index);
+            }
+
+            GLTFAccessor positions;
+            for (const auto &attr : p.attributes) {
+                if (attr.first == "POSITION") {
+                    const auto &acc = model.accessors[attr.second];
+                    auto &bv = app_state->gltf_model.buffers[acc.bufferView];
+                    positions = GLTFAccessor(&bv, &acc);
+
+                    bv.needs_upload = true;
+                    bv.add_usage(wgpu::BufferUsage::Vertex);
+                }
+            }
+
+            if (positions.size() == 0) {
+                std::cerr << "Primitive in " << m.name << " has no positions!\n";
+                continue;
+            }
+
+            app_state->gltf_model.primitives.emplace_back(positions, indices, &p);
+        }
+    }
+
+    // Upload all buffers that need to be uploaded
+    for (auto &bv : app_state->gltf_model.buffers) {
+        if (bv.needs_upload) {
+            std::cout << "Uploading buffer of " << bv.byte_length() << " bytes\n";
+            bv.upload(app_state->device);
+            bv.needs_upload = false;
+        }
+    }
+
+    // Build render pipelines for each primitive
+    for (auto &p : app_state->gltf_model.primitives) {
+        p.build_render_pipeline(app_state->device,
+                                shader_module,
+                                color_targets,
+                                depth_state,
+                                {view_params_bg_layout});
+    }
 
     // Create the UBO for our bind group
     wgpu::BufferDescriptor ubo_buffer_desc;
@@ -250,7 +305,7 @@ int main(int argc, const char **argv)
     app_state->bind_group = app_state->device.CreateBindGroup(&bind_group_desc);
 
     app_state->proj = glm::perspective(
-        glm::radians(50.f), static_cast<float>(win_width) / win_height, 0.1f, 100.f);
+        glm::radians(50.f), static_cast<float>(win_width) / win_height, 0.1f, 1000.f);
     app_state->camera = ArcballCamera(glm::vec3(0, 0, -2.5), glm::vec3(0), glm::vec3(0, 1, 0));
 
     emscripten_set_mousemove_callback("#webgpu-canvas", app_state, true, mouse_move_callback);
@@ -288,7 +343,7 @@ int mouse_wheel_callback(int type, const EmscriptenWheelEvent *event, void *_app
     // Pinch events on the touchpad the ctrl key set
     // TODO: this likely breaks scroll on a scroll wheel, so we need a way to detect if the
     // user has a mouse and change the behavior. Need to test on a real mouse
-    if (true) {//event->mouse.ctrlKey) {
+    if (true) {  // event->mouse.ctrlKey) {
         app_state->camera.zoom(-event->deltaY * 0.005f * dpi);
         app_state->camera_changed = true;
     } else {
@@ -336,6 +391,14 @@ void loop_iteration(void *_app_state)
     pass_desc.colorAttachmentCount = 1;
     pass_desc.colorAttachments = &color_attachment;
 
+    wgpu::RenderPassDepthStencilAttachment depth_attachment;
+    depth_attachment.view = app_state->depth_texture.CreateView();
+    depth_attachment.depthClearValue = 1.f;
+    depth_attachment.depthLoadOp = wgpu::LoadOp::Clear;
+    depth_attachment.depthStoreOp = wgpu::StoreOp::Store;
+
+    pass_desc.depthStencilAttachment = &depth_attachment;
+
     wgpu::CommandEncoder encoder = app_state->device.CreateCommandEncoder();
     if (app_state->camera_changed) {
         encoder.CopyBufferToBuffer(
@@ -343,10 +406,13 @@ void loop_iteration(void *_app_state)
     }
 
     wgpu::RenderPassEncoder render_pass_enc = encoder.BeginRenderPass(&pass_desc);
-    render_pass_enc.SetPipeline(app_state->render_pipeline);
-    render_pass_enc.SetVertexBuffer(0, app_state->vertex_buf);
+
     render_pass_enc.SetBindGroup(0, app_state->bind_group);
-    render_pass_enc.Draw(3);
+
+    for (auto &p : app_state->gltf_model.primitives) {
+        p.render(render_pass_enc);
+    }
+
     render_pass_enc.End();
 
     wgpu::CommandBuffer commands = encoder.Finish();
