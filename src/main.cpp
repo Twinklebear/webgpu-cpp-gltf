@@ -144,8 +144,6 @@ int main(int argc, const char **argv)
         shader_module_desc.nextInChain = &shader_module_wgsl;
         shader_module = app_state->device.CreateShaderModule(&shader_module_desc);
 
-        // This is coming in Emscripten 3.1.51
-        /*
         shader_module.GetCompilationInfo(
             [](WGPUCompilationInfoRequestStatus status,
                WGPUCompilationInfo const *info,
@@ -165,9 +163,6 @@ int main(int argc, const char **argv)
                         case WGPUCompilationMessageType_Info:
                             std::cout << "info";
                             break;
-                        case WGPUCompilationMessageType_Force32:
-                            std::cout << "force32";
-                            break;
                         default:
                             break;
                         }
@@ -177,7 +172,6 @@ int main(int argc, const char **argv)
                 }
             },
             nullptr);
-            */
     }
 
     std::vector<wgpu::ColorTargetState> color_targets;
