@@ -2,6 +2,7 @@
 #include <iostream>
 #include <vector>
 #include "arcball_camera.h"
+#include "flatten_gltf.h"
 #include "gltf_accessor.h"
 #include "gltf_buffer_view.h"
 #include "gltf_mesh.h"
@@ -218,7 +219,7 @@ int main(int argc, const char **argv)
 
     std::cout << "GLTF file loaded\n";
 
-    const auto &model = app_state->gltf_model.model;
+    auto &model = app_state->gltf_model.model;
     // Create GLTFBufferViews for all the buffer views in the file
     for (auto &bv : model.bufferViews) {
         const auto &buf = model.buffers[bv.buffer];
@@ -277,10 +278,26 @@ int main(int argc, const char **argv)
         }
     }
 
-    // Build render pipelines for each primitive
-    for (auto &m : app_state->gltf_model.meshes) {
-        std::cout << "Building render pipeline for: " << m.get_name() << "\n";
-        m.build_render_pipeline(app_state->device,
+    // Flatten the GLTF nodes
+    if (model.defaultScene == -1) {
+        model.defaultScene = 0;
+    }
+    flatten_gltf(model);
+
+    // Load the GLTF Nodes for the default scene
+    for (const auto &nid : model.scenes[model.defaultScene].nodes) {
+        const auto &n = model.nodes[nid];
+        if (n.mesh != -1) {
+            const glm::mat4 xfm = read_node_transform(n);
+            auto *mesh = &app_state->gltf_model.meshes[n.mesh];
+            app_state->gltf_model.nodes.emplace_back(n.name, xfm, mesh);
+        }
+    }
+
+    // Build render pipelines for each node
+    for (auto &n : app_state->gltf_model.nodes) {
+        std::cout << "Building render pipeline for: " << n.get_name() << "\n";
+        n.build_render_pipeline(app_state->device,
                                 shader_module,
                                 color_targets,
                                 depth_state,
@@ -411,8 +428,9 @@ void loop_iteration(void *_app_state)
 
     render_pass_enc.SetBindGroup(0, app_state->bind_group);
 
-    for (auto &m : app_state->gltf_model.meshes) {
-        m.render(render_pass_enc);
+    // Render all nodes
+    for (auto &n : app_state->gltf_model.nodes) {
+        n.render(render_pass_enc);
     }
 
     render_pass_enc.End();
