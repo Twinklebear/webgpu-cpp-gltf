@@ -8,23 +8,30 @@
                            integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm"
                            crossorigin="anonymous">
 
-    <title>WebGPU C++ Wasm Starter</title>
+    <title>WebGPU C++/Wasm glTF Renderer</title>
 </head>
 <body>
     <div class="container mt-4">
         <div class="row">
             <div class="col-12 text-center">
-                <h4>WebGPU C++ Wasm Starter</h4>
+                <h4>WebGPU C++/Wasm glTF Renderer</h4>
                 <canvas id="webgpu-canvas" class="img-fluid" width="1280" height="720"></canvas>
                 <div class="col-12 alert alert-danger" id="no-webgpu" style="display:none;">
                     <h4>Error: Your browser does not support WebGPU</h4>
-                    <p>Try the latest Chrome or Firefox Nightly</p>
+                    <p>Try the latest Chrome, Firefox Nightly, or Safari Technology Preview</p>
                 </div>
             </div>
             <div class="mx-auto col-12 col-lg-8 row">
                 <h4>Description</h4>
                 <div class="col-12 row">
-                    <p>Link to Github TODO</p>
+                    <p>This is a glTF Renderer written using C++ and WebGPU that is compiled to
+                    WebAssembly to run in the browser. You can upload glb files below to view them.
+                    Note: the app does not automatically place the camera based on the scene bounds,
+                    so some files may not be visible immediately after load.</p>
+                    <p>Get the source code on <a href="https://github.com/Twinklebear/webgpu-cpp-gltf">Github</a>!</p>
+                </div>
+                <div id="loading-text" class="col-12 mx-auto text-center alert alert-primary" hidden>
+                    Uploading glb file, please wait.
                 </div>
                 <div class="col-12 mx-auto">
                     <input type="file" class="custom-file-input" id="uploadGLB" accept=".glb">

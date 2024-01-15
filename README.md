@@ -1,5 +1,5 @@
 # WebGPU C++/Wasm glTF Renderer
 
-A glTF renderer in C++ using WebGPU that compiles to
-Wasm to run in the browser.
+This is a glTF Renderer written using C++ and WebGPU that is compiled to
+WebAssembly to run in the browser.
 
