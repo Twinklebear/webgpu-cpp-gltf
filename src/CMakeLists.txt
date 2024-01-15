@@ -1,4 +1,4 @@
-embed_files(embedded_files ./gltf.wgsl ./TwoCylinderEngine.glb)
+embed_files(embedded_files ./gltf.wgsl ./DamagedHelmet.glb)
 
 add_executable(
   wgpu_app
@@ -10,7 +10,8 @@ add_executable(
   gltf_primitive.cpp
   gltf_mesh.cpp
   gltf_node.cpp
-  flatten_gltf.cpp)
+  flatten_gltf.cpp
+  import_gltf.cpp)
 
 set_target_properties(wgpu_app PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED
                                                           ON)
@@ -40,7 +41,8 @@ target_link_options(
   $<$<CONFIG:DEBUG>:-g>
   $<$<CONFIG:DEBUG>:-O0>
   # Exported Emscripten runtime methods
-  "SHELL:-sEXPORTED_RUNTIME_METHODS='[\"callMain\"]'")
+  "SHELL: -sEXPORTED_RUNTIME_METHODS='[\"callMain\", \"cwrap\"]'"
+  "SHELL: -sEXPORTED_FUNCTIONS='[\"_malloc\", \"_free\", \"_main\"]'")
 
 option(ENABLE_SOURCE_MAP
        "Enable source map for debug builds (breaks Chrome DWARF debugging)" OFF)

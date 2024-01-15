@@ -2,13 +2,7 @@
 #include <iostream>
 #include <vector>
 #include "arcball_camera.h"
-#include "flatten_gltf.h"
-#include "gltf_accessor.h"
-#include "gltf_buffer_view.h"
-#include "gltf_mesh.h"
-#include "gltf_node.h"
-#include "gltf_primitive.h"
-#include "tiny_gltf.h"
+#include "import_gltf.h"
 #include <glm/ext.hpp>
 #include <glm/glm.hpp>
 
@@ -19,16 +13,11 @@
 
 #include "embedded_files.h"
 
-struct GLTFRenderData {
-    tinygltf::Model model;
-    std::vector<GLTFBufferView> buffers;
-    std::vector<GLTFMesh> meshes;
-    std::vector<GLTFNode> nodes;
-};
-
 struct AppState {
     wgpu::Device device;
     wgpu::Queue queue;
+
+    wgpu::ShaderModule shader_module;
 
     wgpu::Surface surface;
     wgpu::SwapChain swap_chain;
@@ -43,7 +32,10 @@ struct AppState {
     bool camera_changed = true;
     glm::vec2 prev_mouse = glm::vec2(-2.f);
 
-    GLTFRenderData gltf_model;
+    std::unique_ptr<GLTFRenderData> gltf_model;
+
+    // The new gltf model we've imported and will swap to render on the next frame
+    std::unique_ptr<GLTFRenderData> new_gltf_model;
 };
 
 double css_w = 0.0;
@@ -53,21 +45,25 @@ int win_width = 1280;
 int win_height = 720;
 float dpi = 2.f;
 
+AppState *app_state = nullptr;
+
 glm::vec2 transform_mouse(glm::vec2 in)
 {
     return glm::vec2(in.x * 2.f / css_w - 1.f, 1.f - 2.f * in.y / css_h);
 }
 
-int mouse_move_callback(int type, const EmscriptenMouseEvent *event, void *_app_state);
-int mouse_wheel_callback(int type, const EmscriptenWheelEvent *event, void *_app_state);
+int mouse_move_callback(int type, const EmscriptenMouseEvent *event, void *user_data);
+int mouse_wheel_callback(int type, const EmscriptenWheelEvent *event, void *user_data);
 
-void loop_iteration(void *_app_state);
+// Exported function called by the app to import and use a new gltf file
+extern "C" EMSCRIPTEN_KEEPALIVE void load_gltf_buffer(const uint8_t *glb,
+                                                      const size_t glb_size);
+
+void loop_iteration(void *user_data);
 
 int main(int argc, const char **argv)
 {
-    AppState *app_state = new AppState;
-
-    // TODO: Need a way to call these while also linking threads
+    app_state = new AppState;
 
     // TODO: we can't call this because we also load this same wasm module into a worker
     // which doesn't have access to the window APIs
@@ -136,16 +132,15 @@ int main(int argc, const char **argv)
         app_state->depth_texture = app_state->device.CreateTexture(&depth_desc);
     }
 
-    wgpu::ShaderModule shader_module;
     {
         wgpu::ShaderModuleWGSLDescriptor shader_module_wgsl;
         shader_module_wgsl.code = reinterpret_cast<const char *>(gltf_wgsl);
 
         wgpu::ShaderModuleDescriptor shader_module_desc;
         shader_module_desc.nextInChain = &shader_module_wgsl;
-        shader_module = app_state->device.CreateShaderModule(&shader_module_desc);
+        app_state->shader_module = app_state->device.CreateShaderModule(&shader_module_desc);
 
-        shader_module.GetCompilationInfo(
+        app_state->shader_module.GetCompilationInfo(
             [](WGPUCompilationInfoRequestStatus status,
                WGPUCompilationInfo const *info,
                void *) {
@@ -175,18 +170,6 @@ int main(int argc, const char **argv)
             nullptr);
     }
 
-    std::vector<wgpu::ColorTargetState> color_targets;
-    {
-        wgpu::ColorTargetState cts;
-        cts.format = wgpu::TextureFormat::BGRA8Unorm;
-        color_targets.push_back(cts);
-    }
-
-    wgpu::DepthStencilState depth_state;
-    depth_state.format = wgpu::TextureFormat::Depth32Float;
-    depth_state.depthCompare = wgpu::CompareFunction::Less;
-    depth_state.depthWriteEnabled = true;
-
     // Create the view params bind group
     wgpu::BindGroupLayoutEntry view_param_layout_entry = {};
     view_param_layout_entry.binding = 0;
@@ -201,108 +184,8 @@ int main(int argc, const char **argv)
     wgpu::BindGroupLayout view_params_bg_layout =
         app_state->device.CreateBindGroupLayout(&view_params_bg_layout_desc);
 
-    // Try out importing the file using TinyGLTF
-    tinygltf::TinyGLTF context;
-    std::string err, warn;
-    bool ret = false;
-    ret = context.LoadBinaryFromMemory(&app_state->gltf_model.model,
-                                       &err,
-                                       &warn,
-                                       TwoCylinderEngine_glb,
-                                       TwoCylinderEngine_glb_size);
-    if (!warn.empty()) {
-        std::cout << "Warning loading GLB: " << warn << "\n";
-    }
-    if (!ret || !err.empty()) {
-        std::cerr << "Error loading GLB: " << err << "\n";
-    }
-
-    std::cout << "GLTF file loaded\n";
-
-    auto &model = app_state->gltf_model.model;
-    // Create GLTFBufferViews for all the buffer views in the file
-    for (auto &bv : model.bufferViews) {
-        const auto &buf = model.buffers[bv.buffer];
-        app_state->gltf_model.buffers.emplace_back(&bv, buf);
-    }
-
-    std::cout << "# of meshes: " << model.meshes.size() << "\n";
-    for (const auto &m : model.meshes) {
-        std::cout << "Mesh name: " << m.name << " has " << m.primitives.size()
-                  << " primitives\n";
-        std::vector<GLTFPrimitive> primitives;
-        for (const auto &p : m.primitives) {
-            if (p.mode != TINYGLTF_MODE_TRIANGLES && p.mode != TINYGLTF_MODE_TRIANGLE_STRIP) {
-                std::cout << "Skipping non-triangle primitive in " << m.name << "\n";
-                continue;
-            }
-
-            GLTFAccessor indices;
-            if (p.indices != -1) {
-                const auto &acc = model.accessors[p.indices];
-                auto &bv = app_state->gltf_model.buffers[acc.bufferView];
-                indices = GLTFAccessor(&bv, &acc);
-
-                bv.needs_upload = true;
-                bv.add_usage(wgpu::BufferUsage::Index);
-            }
-
-            GLTFAccessor positions;
-            for (const auto &attr : p.attributes) {
-                if (attr.first == "POSITION") {
-                    const auto &acc = model.accessors[attr.second];
-                    auto &bv = app_state->gltf_model.buffers[acc.bufferView];
-                    positions = GLTFAccessor(&bv, &acc);
-
-                    bv.needs_upload = true;
-                    bv.add_usage(wgpu::BufferUsage::Vertex);
-                }
-            }
-
-            if (positions.size() == 0) {
-                std::cerr << "Primitive in " << m.name << " has no positions!\n";
-                continue;
-            }
-
-            primitives.emplace_back(positions, indices, &p);
-        }
-        app_state->gltf_model.meshes.emplace_back(m.name, std::move(primitives));
-    }
-
-    // Upload all buffers that need to be uploaded
-    for (auto &bv : app_state->gltf_model.buffers) {
-        if (bv.needs_upload) {
-            std::cout << "Uploading buffer of " << bv.byte_length() << " bytes\n";
-            bv.upload(app_state->device);
-            bv.needs_upload = false;
-        }
-    }
-
-    // Flatten the GLTF nodes
-    if (model.defaultScene == -1) {
-        model.defaultScene = 0;
-    }
-    flatten_gltf(model);
-
-    // Load the GLTF Nodes for the default scene
-    for (const auto &nid : model.scenes[model.defaultScene].nodes) {
-        const auto &n = model.nodes[nid];
-        if (n.mesh != -1) {
-            const glm::mat4 xfm = read_node_transform(n);
-            auto *mesh = &app_state->gltf_model.meshes[n.mesh];
-            app_state->gltf_model.nodes.emplace_back(n.name, xfm, mesh);
-        }
-    }
-
-    // Build render pipelines for each node
-    for (auto &n : app_state->gltf_model.nodes) {
-        std::cout << "Building render pipeline for: " << n.get_name() << "\n";
-        n.build_render_pipeline(app_state->device,
-                                shader_module,
-                                color_targets,
-                                depth_state,
-                                {view_params_bg_layout});
-    }
+    // Import the embedded default GLTF file
+    app_state->new_gltf_model = import_gltf(DamagedHelmet_glb, DamagedHelmet_glb_size);
 
     // Create the UBO for our bind group
     wgpu::BufferDescriptor ubo_buffer_desc;
@@ -324,8 +207,8 @@ int main(int argc, const char **argv)
     app_state->bind_group = app_state->device.CreateBindGroup(&bind_group_desc);
 
     app_state->proj = glm::perspective(
-        glm::radians(50.f), static_cast<float>(win_width) / win_height, 0.1f, 1000.f);
-    app_state->camera = ArcballCamera(glm::vec3(0, 0, -2.5), glm::vec3(0), glm::vec3(0, 1, 0));
+        glm::radians(50.f), static_cast<float>(win_width) / win_height, 0.01f, 1000.f);
+    app_state->camera = ArcballCamera(glm::vec3(0, 0, 3.f), glm::vec3(0), glm::vec3(0, 1, 0));
 
     emscripten_set_mousemove_callback("#webgpu-canvas", app_state, true, mouse_move_callback);
     emscripten_set_wheel_callback("#webgpu-canvas", app_state, true, mouse_wheel_callback);
@@ -335,10 +218,8 @@ int main(int argc, const char **argv)
     return 0;
 }
 
-int mouse_move_callback(int type, const EmscriptenMouseEvent *event, void *_app_state)
+int mouse_move_callback(int type, const EmscriptenMouseEvent *event, void *user_data)
 {
-    AppState *app_state = reinterpret_cast<AppState *>(_app_state);
-
     const glm::vec2 cur_mouse = transform_mouse(glm::vec2(event->targetX, event->targetY));
 
     if (app_state->prev_mouse != glm::vec2(-2.f)) {
@@ -355,15 +236,13 @@ int mouse_move_callback(int type, const EmscriptenMouseEvent *event, void *_app_
     return true;
 }
 
-int mouse_wheel_callback(int type, const EmscriptenWheelEvent *event, void *_app_state)
+int mouse_wheel_callback(int type, const EmscriptenWheelEvent *event, void *user_data)
 {
-    AppState *app_state = reinterpret_cast<AppState *>(_app_state);
-
     // Pinch events on the touchpad the ctrl key set
     // TODO: this likely breaks scroll on a scroll wheel, so we need a way to detect if the
     // user has a mouse and change the behavior. Need to test on a real mouse
     if (true) {  // event->mouse.ctrlKey) {
-        app_state->camera.zoom(-event->deltaY * 0.005f * dpi);
+        app_state->camera.zoom(-event->deltaY * 0.0025f * dpi);
         app_state->camera_changed = true;
     } else {
         glm::vec2 prev_mouse(css_w / 2.f, css_h / 2.f);
@@ -379,9 +258,58 @@ int mouse_wheel_callback(int type, const EmscriptenWheelEvent *event, void *_app
     return true;
 }
 
-void loop_iteration(void *_app_state)
+void loop_iteration(void *user_data)
 {
-    AppState *app_state = reinterpret_cast<AppState *>(_app_state);
+    if (app_state->new_gltf_model) {
+        std::cout << "Uploading new GLB file to the GPU\n";
+
+        app_state->gltf_model = std::move(app_state->new_gltf_model);
+        // Upload all buffers that need to be uploaded
+        for (auto &bv : app_state->gltf_model->buffers) {
+            if (bv.needs_upload) {
+                std::cout << "Uploading buffer of " << bv.byte_length() << " bytes\n";
+                bv.upload(app_state->device);
+                bv.needs_upload = false;
+            }
+        }
+
+        // Create the view params bind group
+        wgpu::BindGroupLayoutEntry view_param_layout_entry = {};
+        view_param_layout_entry.binding = 0;
+        view_param_layout_entry.buffer.hasDynamicOffset = false;
+        view_param_layout_entry.buffer.type = wgpu::BufferBindingType::Uniform;
+        view_param_layout_entry.visibility = wgpu::ShaderStage::Vertex;
+
+        wgpu::BindGroupLayoutDescriptor view_params_bg_layout_desc = {};
+        view_params_bg_layout_desc.entryCount = 1;
+        view_params_bg_layout_desc.entries = &view_param_layout_entry;
+
+        wgpu::BindGroupLayout view_params_bg_layout =
+            app_state->device.CreateBindGroupLayout(&view_params_bg_layout_desc);
+
+        std::vector<wgpu::ColorTargetState> color_targets;
+        {
+            wgpu::ColorTargetState cts;
+            cts.format = wgpu::TextureFormat::BGRA8Unorm;
+            color_targets.push_back(cts);
+        }
+
+        wgpu::DepthStencilState depth_state;
+        depth_state.format = wgpu::TextureFormat::Depth32Float;
+        depth_state.depthCompare = wgpu::CompareFunction::Less;
+        depth_state.depthWriteEnabled = true;
+
+        // Build render pipelines for each node
+        for (auto &n : app_state->gltf_model->nodes) {
+            std::cout << "Building render pipeline for: " << n.get_name() << "\n";
+            n.build_render_pipeline(app_state->device,
+                                    app_state->shader_module,
+                                    color_targets,
+                                    depth_state,
+                                    {view_params_bg_layout});
+        }
+    }
+
     wgpu::Buffer upload_buf;
     if (app_state->camera_changed) {
         wgpu::BufferDescriptor upload_buffer_desc;
@@ -428,9 +356,11 @@ void loop_iteration(void *_app_state)
 
     render_pass_enc.SetBindGroup(0, app_state->bind_group);
 
-    // Render all nodes
-    for (auto &n : app_state->gltf_model.nodes) {
-        n.render(render_pass_enc);
+    if (app_state->gltf_model) {
+        // Render all nodes of the gltf model
+        for (auto &n : app_state->gltf_model->nodes) {
+            n.render(render_pass_enc);
+        }
     }
 
     render_pass_enc.End();
@@ -440,4 +370,13 @@ void loop_iteration(void *_app_state)
     app_state->queue.Submit(1, &commands);
 
     app_state->camera_changed = false;
+}
+
+extern "C" EMSCRIPTEN_KEEPALIVE void load_gltf_buffer(const uint8_t *glb,
+                                                      const size_t glb_size)
+{
+    std::cout << "Importing new GLTF data!\n";
+    std::cout << "Byte size is " << glb_size << "\n";
+
+    app_state->new_gltf_model = import_gltf(glb, glb_size);
 }
