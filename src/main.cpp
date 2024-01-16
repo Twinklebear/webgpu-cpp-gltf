@@ -1,3 +1,4 @@
+#include <chrono>
 #include <cstdlib>
 #include <iostream>
 #include <vector>
@@ -185,7 +186,7 @@ int main(int argc, const char **argv)
         app_state->device.CreateBindGroupLayout(&view_params_bg_layout_desc);
 
     // Import the embedded default GLTF file
-    app_state->new_gltf_model = import_gltf(DamagedHelmet_glb, DamagedHelmet_glb_size);
+    load_gltf_buffer(DamagedHelmet_glb, DamagedHelmet_glb_size);
 
     // Create the UBO for our bind group
     wgpu::BufferDescriptor ubo_buffer_desc;
@@ -375,8 +376,14 @@ void loop_iteration(void *user_data)
 extern "C" EMSCRIPTEN_KEEPALIVE void load_gltf_buffer(const uint8_t *glb,
                                                       const size_t glb_size)
 {
+    using namespace std::chrono;
     std::cout << "Importing new GLTF data!\n";
     std::cout << "Byte size is " << glb_size << "\n";
 
+    auto start = steady_clock::now();
     app_state->new_gltf_model = import_gltf(glb, glb_size);
+    auto end = steady_clock::now();
+
+    std::cout << "C++ timed loading as: " << duration_cast<milliseconds>(end - start).count()
+              << "ms\n";
 }
