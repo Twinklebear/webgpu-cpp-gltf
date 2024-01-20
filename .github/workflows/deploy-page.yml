@@ -35,7 +35,9 @@ jobs:
 
       - name: Build Web App Dist
         working-directory: ${{ github.workspace }}/web/
-        run: npm run build
+        run: |
+          npm i
+          npm run build
 
       - name: Upload Web App Dist
         uses: actions/upload-pages-artifact@v3
