@@ -8,7 +8,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        node-version: "latest"
+        with:
+          node-version: "latest"
 
 
       - name: Setup Emscripten SDK
@@ -38,7 +39,8 @@ jobs:
 
       - name: Upload Web App Dist
         uses: actions/upload-pages-artifact@v4
-        path: ${{ github.workspace }}/web/dist
+        with:
+          path: ${{ github.workspace }}/web/dist
 
   deploy:
     needs: build
