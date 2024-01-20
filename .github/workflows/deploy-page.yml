@@ -38,7 +38,7 @@ jobs:
         run: npm run build
 
       - name: Upload Web App Dist
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v3
         with:
           path: ${{ github.workspace }}/web/dist
 
