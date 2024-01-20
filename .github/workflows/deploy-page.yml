@@ -24,7 +24,7 @@ jobs:
           source ./emsdk/emsdk_env.sh
           mkdir cmake-build
           cd cmake-build
-          emcmake cmake .. -DCMAKE_BUILD_TYPE=Release
+          emcmake cmake .. -DCMAKE_BUILD_TYPE=RelWithDebInfo
 
 
       - name: Build C++
