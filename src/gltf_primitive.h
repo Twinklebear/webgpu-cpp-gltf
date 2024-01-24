@@ -9,6 +9,7 @@ class GLTFPrimitive {
     const tinygltf::Primitive *primitive = nullptr;
     GLTFAccessor positions;
     GLTFAccessor indices;
+    GLTFAccessor texcoords;
 
     wgpu::RenderPipeline render_pipeline;
 
@@ -17,6 +18,7 @@ public:
 
     GLTFPrimitive(const GLTFAccessor &positions,
                   const GLTFAccessor &indices,
+                  const GLTFAccessor &texcoords,
                   const tinygltf::Primitive *primitive);
 
     void build_render_pipeline(wgpu::Device &device,

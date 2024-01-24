@@ -24,6 +24,10 @@ std::unique_ptr<GLTFRenderData> import_gltf(const uint8_t *glb, const size_t glb
     std::cout << "GLTF file loaded\n";
 
     auto &model = gltf_model->model;
+
+    // Load the images in the model
+    std::cout << "# of images: " << model.images.size() << "\n";
+
     // Create GLTFBufferViews for all the buffer views in the file
     for (auto &bv : model.bufferViews) {
         const auto &buf = model.buffers[bv.buffer];
@@ -52,11 +56,20 @@ std::unique_ptr<GLTFRenderData> import_gltf(const uint8_t *glb, const size_t glb
             }
 
             GLTFAccessor positions;
+            GLTFAccessor texcoords;
             for (const auto &attr : p.attributes) {
+                std::cout << "Attribute: " << attr.first << "\n";
                 if (attr.first == "POSITION") {
                     const auto &acc = model.accessors[attr.second];
                     auto &bv = gltf_model->buffers[acc.bufferView];
                     positions = GLTFAccessor(&bv, &acc);
+
+                    bv.needs_upload = true;
+                    bv.add_usage(wgpu::BufferUsage::Vertex);
+                } else if (attr.first == "TEXCOORD_0") {
+                    const auto &acc = model.accessors[attr.second];
+                    auto &bv = gltf_model->buffers[acc.bufferView];
+                    texcoords = GLTFAccessor(&bv, &acc);
 
                     bv.needs_upload = true;
                     bv.add_usage(wgpu::BufferUsage::Vertex);
@@ -68,7 +81,7 @@ std::unique_ptr<GLTFRenderData> import_gltf(const uint8_t *glb, const size_t glb
                 continue;
             }
 
-            primitives.emplace_back(positions, indices, &p);
+            primitives.emplace_back(positions, indices, texcoords, &p);
         }
         gltf_model->meshes.emplace_back(m.name, std::move(primitives));
     }

@@ -11,7 +11,8 @@ add_executable(
   gltf_mesh.cpp
   gltf_node.cpp
   flatten_gltf.cpp
-  import_gltf.cpp)
+  import_gltf.cpp
+  shader_cache.cpp)
 
 set_target_properties(wgpu_app PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED
                                                           ON)

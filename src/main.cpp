@@ -328,9 +328,9 @@ void loop_iteration(void *user_data)
 
     wgpu::RenderPassColorAttachment color_attachment;
     color_attachment.view = app_state->swap_chain.GetCurrentTextureView();
-    color_attachment.clearValue.r = 0.f;
-    color_attachment.clearValue.g = 0.f;
-    color_attachment.clearValue.b = 0.f;
+    color_attachment.clearValue.r = 0.1f;
+    color_attachment.clearValue.g = 0.1f;
+    color_attachment.clearValue.b = 0.1f;
     color_attachment.clearValue.a = 1.f;
     color_attachment.loadOp = wgpu::LoadOp::Clear;
     color_attachment.storeOp = wgpu::StoreOp::Store;
