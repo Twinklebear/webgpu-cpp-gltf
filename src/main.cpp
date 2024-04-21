@@ -82,8 +82,8 @@ int main(int argc, const char **argv)
 
     app_state->device = wgpu::Device::Acquire(emscripten_webgpu_get_device());
 
-    wgpu::InstanceDescriptor instance_desc;
-    wgpu::Instance instance = wgpu::CreateInstance(&instance_desc);
+    //wgpu::InstanceDescriptor instance_desc;
+    wgpu::Instance instance = wgpu::CreateInstance(nullptr);
 
     app_state->device.SetUncapturedErrorCallback(
         [](WGPUErrorType type, const char *msg, void *data) {
