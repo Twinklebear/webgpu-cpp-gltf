@@ -15,10 +15,8 @@ jobs:
         run: |
           git clone https://github.com/emscripten-core/emsdk.git
           cd emsdk
-          # TODO: 3.1.52 has a change to WebGPU API that is incompatible
-          # with the C++ bindings I have in the repo?
-          ./emsdk install 3.1.51
-          ./emsdk activate 3.1.51
+          ./emsdk install 4.0.3
+          ./emsdk activate 4.0.3
 
       - name: Configure
         run: |
