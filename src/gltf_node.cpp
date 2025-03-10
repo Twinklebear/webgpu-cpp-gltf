@@ -1,6 +1,5 @@
 #include "gltf_node.h"
 #include <vector>
-#include "webgpu_cpp.h"
 #include <glm/ext.hpp>
 
 GLTFNode::GLTFNode(const std::string &name, const glm::mat4 &transform, GLTFMesh *mesh)

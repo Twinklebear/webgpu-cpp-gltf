@@ -3,7 +3,7 @@
 #include <vector>
 #include "gltf_accessor.h"
 #include "tiny_gltf.h"
-#include "webgpu_cpp.h"
+#include <webgpu/webgpu_cpp.h>
 
 class GLTFPrimitive {
     const tinygltf::Primitive *primitive = nullptr;

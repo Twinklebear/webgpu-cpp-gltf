@@ -2,7 +2,7 @@
 
 #include "gltf_buffer_view.h"
 #include "tiny_gltf.h"
-#include "webgpu_cpp.h"
+#include <webgpu/webgpu_cpp.h>
 
 struct GLTFAccessor {
     const GLTFBufferView *view = nullptr;

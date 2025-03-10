@@ -1,8 +1,8 @@
 #pragma once
 
 #include <string>
+#include <webgpu/webgpu_cpp.h>
 #include "gltf_mesh.h"
-#include "webgpu_cpp.h"
 #include <glm/glm.hpp>
 
 class GLTFNode {

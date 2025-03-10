@@ -10,7 +10,7 @@
 #include <emscripten/emscripten.h>
 #include <emscripten/html5.h>
 #include <emscripten/html5_webgpu.h>
-#include "webgpu_cpp.h"
+#include <webgpu/webgpu_cpp.h>
 
 #include "embedded_files.h"
 
@@ -53,8 +53,8 @@ glm::vec2 transform_mouse(glm::vec2 in)
     return glm::vec2(in.x * 2.f / css_w - 1.f, 1.f - 2.f * in.y / css_h);
 }
 
-int mouse_move_callback(int type, const EmscriptenMouseEvent *event, void *user_data);
-int mouse_wheel_callback(int type, const EmscriptenWheelEvent *event, void *user_data);
+bool mouse_move_callback(int type, const EmscriptenMouseEvent *event, void *user_data);
+bool mouse_wheel_callback(int type, const EmscriptenWheelEvent *event, void *user_data);
 
 // Exported function called by the app to import and use a new gltf file
 extern "C" EMSCRIPTEN_KEEPALIVE void load_gltf_buffer(const uint8_t *glb,
@@ -83,7 +83,7 @@ int main(int argc, const char **argv)
     app_state->device = wgpu::Device::Acquire(emscripten_webgpu_get_device());
 
     wgpu::InstanceDescriptor instance_desc;
-    wgpu::Instance instance = wgpu::CreateInstance(&instance_desc);
+    wgpu::Instance instance = wgpu::CreateInstance(nullptr);
 
     app_state->device.SetUncapturedErrorCallback(
         [](WGPUErrorType type, const char *msg, void *data) {
@@ -93,14 +93,6 @@ int main(int argc, const char **argv)
             std::exit(1);
         },
         nullptr);
-
-    /*
-    app_state->device.SetLoggingCallback(
-        [](WGPULoggingType type, const char *msg, void *data) {
-            std::cout << "WebGPU Log: " << msg << "\n" << std::flush;
-        },
-        nullptr);
-        */
 
     app_state->queue = app_state->device.GetQueue();
 
@@ -112,15 +104,13 @@ int main(int argc, const char **argv)
 
     app_state->surface = instance.CreateSurface(&surface_desc);
 
-    wgpu::SwapChainDescriptor swap_chain_desc;
-    swap_chain_desc.format = wgpu::TextureFormat::BGRA8Unorm;
-    swap_chain_desc.usage = wgpu::TextureUsage::RenderAttachment;
-    swap_chain_desc.presentMode = wgpu::PresentMode::Fifo;
-    swap_chain_desc.width = win_width;
-    swap_chain_desc.height = win_height;
+    wgpu::SurfaceConfiguration surface_config;
+    surface_config.device = app_state->device;
+    surface_config.format = wgpu::TextureFormat::BGRA8Unorm;
+    surface_config.width = win_width;
+    surface_config.height = win_height;
 
-    app_state->swap_chain =
-        app_state->device.CreateSwapChain(app_state->surface, &swap_chain_desc);
+    app_state->surface.Configure(&surface_config);
 
     // Create the depth buffer
     {
@@ -219,7 +209,7 @@ int main(int argc, const char **argv)
     return 0;
 }
 
-int mouse_move_callback(int type, const EmscriptenMouseEvent *event, void *user_data)
+bool mouse_move_callback(int type, const EmscriptenMouseEvent *event, void *user_data)
 {
     const glm::vec2 cur_mouse = transform_mouse(glm::vec2(event->targetX, event->targetY));
 
@@ -237,7 +227,7 @@ int mouse_move_callback(int type, const EmscriptenMouseEvent *event, void *user_
     return true;
 }
 
-int mouse_wheel_callback(int type, const EmscriptenWheelEvent *event, void *user_data)
+bool mouse_wheel_callback(int type, const EmscriptenWheelEvent *event, void *user_data)
 {
     // Pinch events on the touchpad the ctrl key set
     // TODO: this likely breaks scroll on a scroll wheel, so we need a way to detect if the
@@ -326,8 +316,17 @@ void loop_iteration(void *user_data)
         upload_buf.Unmap();
     }
 
+    wgpu::SurfaceTexture surface_texture;
+    app_state->surface.GetCurrentTexture(&surface_texture);
+
+    wgpu::TextureViewDescriptor texture_view_desc;
+    texture_view_desc.format = surface_texture.texture.GetFormat();
+    texture_view_desc.dimension = wgpu::TextureViewDimension::e2D;
+    texture_view_desc.mipLevelCount = 1;
+    texture_view_desc.arrayLayerCount = 1;
+
     wgpu::RenderPassColorAttachment color_attachment;
-    color_attachment.view = app_state->swap_chain.GetCurrentTextureView();
+    color_attachment.view = surface_texture.texture.CreateView(&texture_view_desc);
     color_attachment.clearValue.r = 0.f;
     color_attachment.clearValue.g = 0.f;
     color_attachment.clearValue.b = 0.f;

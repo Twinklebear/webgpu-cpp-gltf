@@ -1,7 +1,7 @@
 #pragma once
 
+#include <webgpu/webgpu_cpp.h>
 #include "tiny_gltf.h"
-#include "webgpu_cpp.h"
 
 struct GLTFBufferView {
     const tinygltf::BufferView *view = nullptr;

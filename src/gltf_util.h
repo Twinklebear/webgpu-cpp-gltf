@@ -4,7 +4,7 @@
 #include <stdexcept>
 #include <string>
 #include "tiny_gltf.h"
-#include "webgpu_cpp.h"
+#include <webgpu/webgpu_cpp.h>
 
 inline size_t align_to(const size_t x, const size_t align)
 {

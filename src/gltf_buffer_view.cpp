@@ -2,7 +2,6 @@
 #include <cstddef>
 #include <cstring>
 #include "gltf_util.h"
-#include "webgpu_cpp.h"
 
 GLTFBufferView::GLTFBufferView(const tinygltf::BufferView *view,
                                const tinygltf::Buffer &buffer)

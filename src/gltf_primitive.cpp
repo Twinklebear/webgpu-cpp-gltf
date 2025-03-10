@@ -1,6 +1,5 @@
 #include "gltf_primitive.h"
 #include <vector>
-#include "webgpu_cpp.h"
 
 GLTFPrimitive::GLTFPrimitive(const GLTFAccessor &positions,
                              const GLTFAccessor &indices,

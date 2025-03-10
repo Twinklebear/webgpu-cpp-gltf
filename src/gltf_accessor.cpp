@@ -1,6 +1,5 @@
 #include "gltf_accessor.h"
 #include "gltf_util.h"
-#include "webgpu_cpp.h"
 
 GLTFAccessor::GLTFAccessor(const GLTFBufferView *view, const tinygltf::Accessor *accessor)
     : view(view), accessor(accessor)
