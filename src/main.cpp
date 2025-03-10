@@ -64,21 +64,27 @@ void loop_iteration(void *user_data);
 
 int main(int argc, const char **argv)
 {
-    app_state = new AppState;
+    std::string canvas_id = "#webgpu-canvas";
+    if (argc == 2) {
+        canvas_id = argv[1];
+    }
+    std::cout << "Using canvas " << canvas_id << "\n";
+
+    app_state = new AppState();
 
     // TODO: we can't call this because we also load this same wasm module into a worker
     // which doesn't have access to the window APIs
     dpi = emscripten_get_device_pixel_ratio();
-    emscripten_get_element_css_size("#webgpu-canvas", &css_w, &css_h);
+    emscripten_get_element_css_size(canvas_id.c_str(), &css_w, &css_h);
     std::cout << "Canvas element size = " << css_w << "x" << css_h << "\n";
 
-    emscripten_get_canvas_element_size("#webgpu-canvas", &win_width, &win_height);
+    emscripten_get_canvas_element_size(canvas_id.c_str(), &win_width, &win_height);
     std::cout << "Canvas size: " << win_width << "x" << win_height << "\n";
     win_width = css_w * dpi;
     win_height = css_h * dpi;
     std::cout << "Setting canvas size: " << win_width << "x" << win_height << "\n";
 
-    emscripten_set_canvas_element_size("#webgpu-canvas", win_width, win_height);
+    emscripten_set_canvas_element_size(canvas_id.c_str(), win_width, win_height);
 
     app_state->device = wgpu::Device::Acquire(emscripten_webgpu_get_device());
 
@@ -97,7 +103,7 @@ int main(int argc, const char **argv)
     app_state->queue = app_state->device.GetQueue();
 
     wgpu::SurfaceDescriptorFromCanvasHTMLSelector selector;
-    selector.selector = "#webgpu-canvas";
+    selector.selector = canvas_id.c_str();
 
     wgpu::SurfaceDescriptor surface_desc;
     surface_desc.nextInChain = &selector;
@@ -201,8 +207,8 @@ int main(int argc, const char **argv)
         glm::radians(50.f), static_cast<float>(win_width) / win_height, 0.01f, 1000.f);
     app_state->camera = ArcballCamera(glm::vec3(0, 0, 3.f), glm::vec3(0), glm::vec3(0, 1, 0));
 
-    emscripten_set_mousemove_callback("#webgpu-canvas", app_state, true, mouse_move_callback);
-    emscripten_set_wheel_callback("#webgpu-canvas", app_state, true, mouse_wheel_callback);
+    emscripten_set_mousemove_callback(canvas_id.c_str(), app_state, true, mouse_move_callback);
+    emscripten_set_wheel_callback(canvas_id.c_str(), app_state, true, mouse_wheel_callback);
 
     emscripten_set_main_loop_arg(loop_iteration, app_state, -1, 0);
 

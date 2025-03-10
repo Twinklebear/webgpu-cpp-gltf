@@ -27,7 +27,7 @@ import WGPUApp from "./cpp/wgpu_app.js";
     });
 
     try {
-        app.callMain();
+        app.callMain(["#webgpu-canvas"]);
     } catch (e) {
         console.error(e.stack);
     }
