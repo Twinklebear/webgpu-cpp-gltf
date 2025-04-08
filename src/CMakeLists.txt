@@ -112,6 +112,8 @@ add_custom_command(
   DEPENDS ${NPM_PACKAGE_BUILD_SRC} ${PROJECT_SOURCE_DIR}/README.md
   OUTPUT ${NPM_PACKAGE_BUILD_DIR}/dist/index.js
   WORKING_DIRECTORY ${NPM_PACKAGE_BUILD_DIR}
+  # Clean up old build dist dir
+  COMMAND cmake -E rm -rf ${NPM_PACKAGE_BUILD_DIR}/dist/
   COMMAND npm i
   COMMAND npm run build
   COMMAND cmake -E copy_if_different ${NPM_PACKAGE_BUILD_DIR}/package.json
