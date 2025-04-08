@@ -76,19 +76,63 @@ set(WEB_OUT_DIR ${PROJECT_SOURCE_DIR}/web/src/cpp)
 
 set(COPY_SRC_MAP $<AND:$<BOOL:${ENABLE_SOURCE_MAP}>,$<CONFIG:DEBUG>>)
 
-add_custom_command(
-  DEPENDS wgpu_app
-  OUTPUT ${WEB_OUT_DIR}/wgpu_app.js ${WEB_OUT_DIR}/wgpu_app.wasm
-         $<${COPY_SRC_MAP}:${WEB_OUT_DIR}/wgpu_app.wasm.map>
-  COMMAND cmake -E make_directory ${WEB_OUT_DIR}
-  COMMAND
-    cmake -E copy_if_different ${CMAKE_CURRENT_BINARY_DIR}/wgpu_app.js
-    ${CMAKE_CURRENT_BINARY_DIR}/wgpu_app.wasm
-    $<${COPY_SRC_MAP}:${CMAKE_CURRENT_BINARY_DIR}/wgpu_app.wasm.map>
-    ${WEB_OUT_DIR})
+# The package.json is used as a CMake configure file to populate the library
+# version from CMake
+configure_file(${CMAKE_CURRENT_LIST_DIR}/ts/package.json
+               ${CMAKE_CURRENT_BINARY_DIR}/package.json @ONLY)
 
+set(NPM_PACKAGE_TS_DIR "${CMAKE_CURRENT_LIST_DIR}/ts/")
+set(NPM_PACKAGE_TS_SRC
+    ${NPM_PACKAGE_TS_DIR}/index.ts ${CMAKE_CURRENT_BINARY_DIR}/package.json
+    ${NPM_PACKAGE_TS_DIR}/tsconfig.json ${NPM_PACKAGE_TS_DIR}/webpack.config.js
+    ${NPM_PACKAGE_TS_DIR}/wasm.d.ts)
+
+set(NPM_PACKAGE_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/npm_package/")
+set(NPM_PACKAGE_BUILD_SRC
+    ${NPM_PACKAGE_BUILD_DIR}/index.ts
+    ${NPM_PACKAGE_BUILD_DIR}/package.json
+    ${NPM_PACKAGE_BUILD_DIR}/tsconfig.json
+    ${NPM_PACKAGE_BUILD_DIR}/webpack.config.js
+    ${NPM_PACKAGE_BUILD_DIR}/wasm.d.ts
+    ${NPM_PACKAGE_BUILD_DIR}/wgpu_app.wasm
+    ${NPM_PACKAGE_BUILD_DIR}/wgpu_app.js)
+# Command to copy the TS files and wasm to make the npm package build dir
+add_custom_command(
+  DEPENDS wgpu_app ${NPM_PACKAGE_TS_SRC}
+  OUTPUT ${NPM_PACKAGE_BUILD_SRC}
+  COMMAND cmake -E make_directory ${NPM_PACKAGE_BUILD_DIR}
+  COMMAND cmake -E copy_if_different ${NPM_PACKAGE_TS_SRC}
+          ${NPM_PACKAGE_BUILD_DIR}
+  COMMAND cmake -E copy_if_different ${CMAKE_CURRENT_BINARY_DIR}/wgpu_app.js
+          ${CMAKE_CURRENT_BINARY_DIR}/wgpu_app.wasm ${NPM_PACKAGE_BUILD_DIR}
+  COMMAND_EXPAND_LISTS)
+
+# Command to build the npm package
+add_custom_command(
+  DEPENDS ${NPM_PACKAGE_BUILD_SRC}
+  OUTPUT ${NPM_PACKAGE_BUILD_DIR}/dist/index.js
+  WORKING_DIRECTORY ${NPM_PACKAGE_BUILD_DIR}
+  COMMAND npm i
+  COMMAND npm run build
+  COMMAND cmake -E copy_if_different ${NPM_PACKAGE_BUILD_DIR}/package.json
+          ${NPM_PACKAGE_BUILD_DIR}/dist/)
 add_custom_target(
-  copy_wasm_to_app ALL
-  DEPENDS ${WEB_OUT_DIR}/wgpu_app.js ${WEB_OUT_DIR}/wgpu_app.wasm
-          $<${COPY_SRC_MAP}:${WEB_OUT_DIR}/wgpu_app.wasm.map>
-  COMMENT "Copying wasm build to ${WEB_OUT_DIR}")
+  npm_build ALL
+  DEPENDS ${NPM_PACKAGE_BUILD_DIR}/dist/index.js
+  COMMENT "npm i && npm run build")
+
+# Custom command to run npm pack
+add_custom_target(
+  npm_pack
+  DEPENDS npm_build
+  WORKING_DIRECTORY ${NPM_PACKAGE_BUILD_DIR}/dist/
+  COMMAND npm pack
+  COMMENT "npm pack")
+
+# Custom command to run npm publish
+add_custom_target(
+  npm_publish
+  DEPENDS npm_build
+  WORKING_DIRECTORY ${NPM_PACKAGE_BUILD_DIR}/dist/
+  COMMAND npm publish
+  COMMENT "npm publish")

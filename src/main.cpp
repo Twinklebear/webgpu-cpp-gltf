@@ -44,7 +44,7 @@ double css_h = 0.0;
 
 int win_width = 1280;
 int win_height = 720;
-float dpi = 2.f;
+float dpi = 1.f;
 
 AppState *app_state = nullptr;
 
@@ -65,26 +65,34 @@ void loop_iteration(void *user_data);
 int main(int argc, const char **argv)
 {
     std::string canvas_id = "#webgpu-canvas";
-    if (argc == 2) {
+    if (argc >= 2) {
         canvas_id = argv[1];
     }
     std::cout << "Using canvas " << canvas_id << "\n";
+    int fixed_dpi = -1;
+    if (argc >= 3) {
+        fixed_dpi = std::atoi(argv[2]);
+    }
 
     app_state = new AppState();
 
     // TODO: we can't call this because we also load this same wasm module into a worker
     // which doesn't have access to the window APIs
-    dpi = emscripten_get_device_pixel_ratio();
     emscripten_get_element_css_size(canvas_id.c_str(), &css_w, &css_h);
     std::cout << "Canvas element size = " << css_w << "x" << css_h << "\n";
 
     emscripten_get_canvas_element_size(canvas_id.c_str(), &win_width, &win_height);
     std::cout << "Canvas size: " << win_width << "x" << win_height << "\n";
-    win_width = css_w * dpi;
-    win_height = css_h * dpi;
-    std::cout << "Setting canvas size: " << win_width << "x" << win_height << "\n";
 
-    emscripten_set_canvas_element_size(canvas_id.c_str(), win_width, win_height);
+    if (fixed_dpi <= 0) {
+        dpi = emscripten_get_device_pixel_ratio();
+        win_width = css_w * dpi;
+        win_height = css_h * dpi;
+        std::cout << "Setting canvas size: " << win_width << "x" << win_height << "\n";
+        emscripten_set_canvas_element_size(canvas_id.c_str(), win_width, win_height);
+    } else {
+        dpi = fixed_dpi;
+    }
 
     app_state->device = wgpu::Device::Acquire(emscripten_webgpu_get_device());
 

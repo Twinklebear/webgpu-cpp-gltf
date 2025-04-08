@@ -1,0 +1,24 @@
+{
+    "compilerOptions": {
+        "outDir": "./dist/",
+        "noImplicitAny": true,
+        "module": "ES6",
+        "target": "ES6",
+        "lib": [
+            "ES6", "DOM"
+        ],
+        "allowJs": true,
+        "moduleResolution": "Node",
+        "sourceMap": true,
+        "declaration": true,
+        "typeRoots": [
+            "./node_modules/@types",
+            "./node_modules/@webgpu/types"
+        ],
+        "allowSyntheticDefaultImports": true
+    },
+    "files": [
+        "index.ts",
+        "wasm.d.ts"
+    ]
+}

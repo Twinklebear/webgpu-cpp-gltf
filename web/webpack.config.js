@@ -69,20 +69,11 @@ module.exports = {
     new CopyWebpackPlugin({
         patterns: [
             {
-                from: "./src/cpp/*.wasm.map",
+                from: "./node_modules/@twinklebear/webgpu_cpp_gltf/*.wasm",
                 to() {
                     return "[name][ext]";
-                },
-                noErrorOnMissing: true
-            },
-            {
-                from: "./dbg/**/*.cpp",
-                to(f) {
-                    const regex = /.*\/web\/dbg\//
-                    return f.absoluteFilename.replace(regex, "src/");
-                },
-                noErrorOnMissing: true
-            },
+                }
+            }
         ]
     })],
 };
