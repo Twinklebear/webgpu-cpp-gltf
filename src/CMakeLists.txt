@@ -109,7 +109,7 @@ add_custom_command(
 
 # Command to build the npm package
 add_custom_command(
-  DEPENDS ${NPM_PACKAGE_BUILD_SRC} ${PROJECT_SOURCE_DIR}/README.md
+  DEPENDS wgpu_app ${NPM_PACKAGE_BUILD_SRC} ${PROJECT_SOURCE_DIR}/README.md
   OUTPUT ${NPM_PACKAGE_BUILD_DIR}/dist/index.js
   WORKING_DIRECTORY ${NPM_PACKAGE_BUILD_DIR}
   # Clean up old build dist dir
