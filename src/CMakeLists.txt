@@ -109,13 +109,17 @@ add_custom_command(
 
 # Command to build the npm package
 add_custom_command(
-  DEPENDS ${NPM_PACKAGE_BUILD_SRC}
+  DEPENDS ${NPM_PACKAGE_BUILD_SRC} ${PROJECT_SOURCE_DIR}/README.md
   OUTPUT ${NPM_PACKAGE_BUILD_DIR}/dist/index.js
   WORKING_DIRECTORY ${NPM_PACKAGE_BUILD_DIR}
   COMMAND npm i
   COMMAND npm run build
   COMMAND cmake -E copy_if_different ${NPM_PACKAGE_BUILD_DIR}/package.json
+          ${NPM_PACKAGE_BUILD_DIR}/dist/
+  # Also copy the readme into the package
+  COMMAND cmake -E copy_if_different ${PROJECT_SOURCE_DIR}/README.md
           ${NPM_PACKAGE_BUILD_DIR}/dist/)
+
 add_custom_target(
   npm_build ALL
   DEPENDS ${NPM_PACKAGE_BUILD_DIR}/dist/index.js
@@ -134,5 +138,5 @@ add_custom_target(
   npm_publish
   DEPENDS npm_build
   WORKING_DIRECTORY ${NPM_PACKAGE_BUILD_DIR}/dist/
-  COMMAND npm publish
+  COMMAND npm publish --access public
   COMMENT "npm publish")

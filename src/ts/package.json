@@ -1,7 +1,8 @@
 {
     "name": "@twinklebear/webgpu_cpp_gltf",
     "version": "@LIBRARY_VERSION@",
-    "description": "",
+    "description": "WebGPU GLTF Renderer using Wasm",
+    "readme": "README.md",
     "main": "index.js",
     "types": "index.d.ts",
     "scripts": {
@@ -9,6 +10,8 @@
     },
     "keywords": [],
     "author": "Will Usher",
+    "email": "will@willusher.io",
+    "repository": "github:Twinklebear/webgpu-cpp-gltf",
     "license": "MIT",
     "devDependencies": {
         "copy-webpack-plugin": "^13.0.0",
