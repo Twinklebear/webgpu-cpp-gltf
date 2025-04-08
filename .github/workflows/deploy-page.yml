@@ -41,8 +41,8 @@ jobs:
       - name: Build Web App Dist
         working-directory: ${{ github.workspace }}/web/
         run: |
-          npm link ../cmake-build/src/npm_package/dist/
           npm i
+          npm link ../cmake-build/src/npm_package/dist/
           npm run build
 
       - name: Upload Web App Dist
