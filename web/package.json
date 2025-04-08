@@ -14,14 +14,14 @@
     "devDependencies": {
         "copy-webpack-plugin": "^13.0.0",
         "html-webpack-plugin": "^5.5.3",
+        "ts-loader": "^9.5.2",
+        "typescript": "^5.8.3",
         "webpack": "^5.98.0",
         "webpack-cli": "^6.0.1",
-        "typescript": "^5.8.3",
-        "ts-loader": "^9.5.2",
-        "webpack-dev-server": "^4.15.1",
-        "@twinklebear/webgpu_cpp_gltf": "^0.1.0"
+        "webpack-dev-server": "^4.15.1"
     },
     "dependencies": {
+        "@twinklebear/webgpu_cpp_gltf": "^0.1.0",
         "@webgpu/types": "^0.1.60"
     }
 }
