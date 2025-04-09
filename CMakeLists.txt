@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.27)
 project(wgpu-cpp-wasm)
 # Library version for our npm package
-set(LIBRARY_VERSION "0.1.1")
+set(LIBRARY_VERSION "0.2.0")
 
 if(NOT WIN32)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic")

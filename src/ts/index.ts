@@ -10,8 +10,8 @@ export class WGPUApp {
     this.wasm = wasm;
   }
 
-  public callMain(canvasId: string) {
-    this.wasm.callMain([canvasId]);
+  public callMain(canvasId: string, fixed_dpi: number = 0) {
+    this.wasm.callMain([canvasId, `${fixed_dpi}`]);
   }
 
   public loadGLTFBuffer(data: Uint8Array) {
@@ -24,12 +24,13 @@ export class WGPUApp {
   }
 }
 
-export async function loadApp() {
+export async function loadApp(args: any = {}) {
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
 
   const app = await App({
     preinitializedWebGPUDevice: device,
+    ...args
   });
 
   app.loadGLTFBuffer = app.cwrap("load_gltf_buffer", null, ["number", "number"]);
