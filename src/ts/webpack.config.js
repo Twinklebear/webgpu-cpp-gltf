@@ -50,6 +50,10 @@ const browser_config = {
       name: "webgpu_cpp_gltf",
       type: "umd",
     },
+    // We need to force this to / so the package can work
+    // in Google Colab. Other Jupyter environments (VSCode,
+    // Jupyter Lab) support public path
+    publicPath: "/",
   },
   module: {
     rules: rules,
