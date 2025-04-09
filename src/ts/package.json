@@ -11,7 +11,9 @@
     "keywords": [],
     "author": "Will Usher",
     "email": "will@willusher.io",
-    "repository": "github:Twinklebear/webgpu-cpp-gltf",
+    "repository": {
+        "url": "git+https://github.com/Twinklebear/webgpu-cpp-gltf.git"
+    },
     "license": "MIT",
     "devDependencies": {
         "copy-webpack-plugin": "^13.0.0",
