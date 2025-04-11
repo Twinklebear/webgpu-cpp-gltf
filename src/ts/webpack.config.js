@@ -53,7 +53,7 @@ const browser_config = {
     // We need to force this to / so the package can work
     // in Google Colab. Other Jupyter environments (VSCode,
     // Jupyter Lab) support public path
-    publicPath: "/",
+    // publicPath: "/",
   },
   module: {
     rules: rules,
