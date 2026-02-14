@@ -16,14 +16,14 @@
     },
     "license": "MIT",
     "devDependencies": {
-        "copy-webpack-plugin": "^13.0.0",
-        "webpack": "^5.98.0",
+        "copy-webpack-plugin": "^13.0.1",
+        "webpack": "^5.105.2",
         "webpack-cli": "^6.0.1",
-        "typescript": "^5.8.3",
-        "ts-loader": "^9.5.2"
+        "typescript": "^5.9.3",
+        "ts-loader": "^9.5.4"
     },
     "dependencies": {
-        "@webgpu/types": "^0.1.60"
+        "@webgpu/types": "^0.1.69"
     },
     "files": [
         "*.js",
