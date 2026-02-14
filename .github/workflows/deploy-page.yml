@@ -33,14 +33,6 @@ jobs:
           source ../emsdk/emsdk_env.sh
           make
 
-      # Add plausible analytics, curious how many people
-      # visit each demo
-      - name: Add Stats
-        if: github.ref == 'refs/heads/main'
-        working-directory: ${{ github.workspace}}/web/
-        run: |
-          sed -i.bk "s/<\/body>/<script defer data-domain='willusher.io' src='https:\/\/pan.wushernet.com\/js\/script.js'><\/script><\/body>/" index.html
-
       - name: Build Web App Dist
         working-directory: ${{ github.workspace }}/web/
         run: |
