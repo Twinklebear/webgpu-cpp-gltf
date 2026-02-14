@@ -1,6 +1,8 @@
 name: Deploy App
 
-on: ["push"]
+on:
+  push:
+  pull_request:
 
 jobs:
   build:
@@ -34,6 +36,7 @@ jobs:
       # Add plausible analytics, curious how many people
       # visit each demo
       - name: Add Stats
+        if: github.ref == 'refs/heads/main'
         working-directory: ${{ github.workspace}}/web/
         run: |
           sed -i.bk "s/<\/body>/<script defer data-domain='willusher.io' src='https:\/\/pan.wushernet.com\/js\/script.js'><\/script><\/body>/" index.html
@@ -46,11 +49,13 @@ jobs:
           npm run build
 
       - name: Upload Web App Dist
+        if: github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v3
         with:
           path: ${{ github.workspace }}/web/dist
 
   deploy:
+    if: github.ref == 'refs/heads/main'
     needs: build
 
     permissions:
